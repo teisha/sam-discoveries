@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Creates secure Bucket
+Parameters:
+  Client:
+    Type: String
+    Description: Resource Tag
+  Project:
+    Type: String
+    Description: A value to identify the project the resource supports
+  Environment:
+    Description: For example, use 'dev' or 'prd'
+    Type: String
+Resources:
+  BucketKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: A key for encrypting objects in the  bucket
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: key-policy-1
+        Statement:
+        - Sid: Allow root account to manage the key
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::${AWS::AccountId}:root
+          Action:
+          - kms:Create*
+          - kms:Describe*
+          - kms:Enable*
+          - kms:List*
+          - kms:Put*
+          - kms:Update*
+          - kms:Revoke*
+          - kms:Disable*
+          - kms:Get*
+          - kms:Delete*
+          - kms:ScheduleKeyDeletion
+          - kms:CancelKeyDeletion
+          Resource: '*'
+        - Sid: Allow access for all principals in the account that are authorized
+            to use KMS
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::${AWS::AccountId}:root
+          Action:
+          - kms:Encrypt
+          - kms:Decrypt
+          - kms:ReEncrypt*
+          - kms:GenerateDataKey*
+          - kms:DescribeKey
+          Resource: '*'
+        - Sid: Allow principle to manage grants
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::${AWS::AccountId}:root
+          Action:
+          - kms:CreateGrant
+          - kms:ListGrants
+          - kms:RevokeGrant
+          Resource: '*'
+          Condition:
+            Bool:
+              kms:GrantIsForAWSResource: true
+  BucketKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName:
+        Fn::Sub: alias/${Client}-${Project}-${Environment}-integration-kms
+      TargetKeyId:
+        Ref: BucketKmsKey
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${Client}-${Project}-${Environment}-share
+      AccessControl: LogDeliveryWrite
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: true
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+      - Key: Encrypted
+        Value: 'true'
+      - Key: Client
+        Value:
+          Ref: Client
+      - Key: Project
+        Value:
+          Ref: Project
+      - Key: Environment
+        Value:
+          Ref: Environment
+Outputs:
+  BucketName:
+    Description: S3 bucket for storing all objects
+    Value:
+      Ref: Bucket
+  BucketArn:
+    Description: ARN of S3 bucket for storing all objects
+    Value:
+      Fn::GetAtt:
+      - Bucket
+      - Arn
+  BucketKmsKeyId:
+    Value:
+      Ref: BucketKmsKey
+  BucketKmsKeyArn:
+    Value:
+      Fn::GetAtt:
+      - BucketKmsKey
+      - Arn

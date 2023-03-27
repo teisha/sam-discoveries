@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"BufferMb
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Create the DirectPut firehose Sam Discovery requires for Event records
+
+Parameters:
+  Client:
+    Type: String
+    Description: Used for tagging and naming
+  Project:
+    Type: String
+    Description: "Used for tagging and naming. Usually: connect"
+  Environment:
+    Description: "Used for tagging and naming. Example: dev, qa, prod"
+    Type: String
+  KmsId:
+    Description: CMK key Id used to encrypt the Kinesis Streams. 
+    Type: String
+  BufferSeconds:
+    Description: Interval in seconds to send data from connect. Minimum value of 60. Maximum value of 900.
+    Type: Number
+    Default: 60
+  BufferMb:
+    Description: Buffer size to send data if breached before Interval is reached.
+    Type: Number
+    Default: 10
+  BucketName:
+    Description: "Bucket name for the output data. Usually: client-project-environment-event-data"
+    Type: String
+
+
+Resources:
+  FirehoseRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - s3:AbortMultipartUpload
+                  - s3:ListBucketMultipartUploads
+                  - s3:DeleteObject
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${BucketName}"
+                  - !Sub "arn:aws:s3:::${BucketName}/*"
+                Effect: Allow
+        - PolicyName: CloudwatchLogsWrite
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:AssociateKmsKey
+                Resource:
+                  - !GetAtt FirehoseCloudWatchGroup.Arn
+        - PolicyName: KMSEncrypt
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Encrpyt
+                  - kms:ReEncryptKey
+                  - kms:GenerateDataKey
+                  - kms:DescribeKey
+                Resource:
+                  - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KmsId}
+
+  FirehoseCloudWatchGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/firehose-${Client}/${Environment}"
+      RetentionInDays: 30
+
+  
+  FirehoseCloudWatchStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref FirehoseCloudWatchGroup
+      LogStreamName: !Sub "${Client}-${Project}-ctr"
+
+  
+  Firehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${BucketName}"
+        BufferingHints:
+          IntervalInSeconds: !Ref BufferSeconds
+          SizeInMBs: !Ref BufferMb
+        CloudWatchLoggingOptions:
+          Enabled: "true"
+          LogGroupName: !Ref FirehoseCloudWatchGroup
+          LogStreamName: !Ref FirehoseCloudWatchStream
+        EncryptionConfiguration:
+          KMSEncryptionConfig:
+            AWSKMSKeyARN: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KmsId} 
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: "ctr-error/"
+        Prefix: "Events/"
+        RoleARN: !GetAtt FirehoseRole.Arn
+      Tags:
+        - Key: Client
+          Value: !Ref Client
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+  
+
+Outputs:
+  StackName:
+    Description: Stack name (for access by parent stack)
+    Value:
+      Ref: AWS::StackName
+  FirehoseName:
+    Description: Kinesis Firehose Name
+    Value: 
+      Ref: Firehose
+    Export:
+      Name: !Sub ${AWS::StackName}-FirehoseName
+  FirehoseArn:
+    Description: Kinesis Firehose Arn
+    Value: 
+      Fn::GetAtt: Firehose.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-FirehoseArn

@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Encrypted Kinesis streams for Events 
+  Important - The KmsId must be the CMK used by the S3 buckets
+
+
+Parameters:
+  Client:
+    Type: String
+    Description: Resource Tag
+  Project:
+    Type: String
+    Description: A value to identify the project the resource supports
+  Environment:
+    Description: For example, use 'dev' or 'prd'
+    Type: String
+  KmsId:
+    Description: CMK key Id used to encrypt the Kinesis Streams. 
+    Type: String
+
+Resources:
+  KinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${Client}-${Project}-event-stream-${Environment}"
+      ShardCount: 1
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: !Ref KmsId
+      RetentionPeriodHours: 168
+      Tags:
+        - Key: Client
+          Value: !Ref Client
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Encrypted
+          Value: "true"
+
+          
+Outputs:
+  StackName:
+    Description: Stack name (for access by parent stack)
+    Value:
+      Ref: AWS::StackName
+  KinesisStreamName:
+    Description: Kinesis Data Stream
+    Value: 
+      Ref: KinesisStream
+    Export:
+      Name: !Sub ${AWS::StackName}-KinesisStreamName
+  KinesisStreamArn:
+    Description: Kinesis Data Stream Arn
+    Value: 
+      Fn::GetAtt: KinesisStream.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-KinesisStreamArn
+

@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Create an SNS topic and add a queue subscription
+
+
+Parameters:
+  Client:
+    Type: String
+    Description: Resource Tag
+  Project:
+    Type: String
+    Description: A value to identify the project the resource supports
+  Environment:
+    Description: For example, use 'dev' or 'prd'
+    Type: String
+  BucketName:
+    Type: String
+    Description: Name of Bucket
+  LambdaRoleArn:
+    Type: Stirng
+    Description: ARN of lambda execution role
+
+Resources:
+  SamDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      Tags:
+        - Key: Client
+          Value: !Ref Client
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment 
+  
+  SamQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SamDeadLetterQueue.Arn
+      Tags:
+        - Key: Client
+          Value: !Ref Client
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment  
+
+  SamTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${Client}-${Project}-experiment-${Environment}"
+      Subscription: 
+        - Endpoint: !GetAtt SamQueue.Arn
+          Protocol: sqs
+      Tags:
+        - Key: Client
+          Value: !Ref Client
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment   
+
+  SamEventHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs18.x
+      Timeout: 60
+      CodeUri: dist/sam-queue-handler
+      Handler: index.handler
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          BUCKET: !Ref BucketName
+      Role: !Ref LambdaRoleArn
+      Events:
+        SamEvent:
+          Type: SQS
+          Properties: 
+            Queue: !SamQueue
+            BatchSize: 10
+      

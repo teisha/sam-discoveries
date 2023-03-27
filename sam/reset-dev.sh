@@ -1,0 +1,1 @@
+aws dynamodb delete-table --table-name sam-disco-infra-dev-data-table

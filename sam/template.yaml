@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Master template for objects created to interface with 
+
+Parameters:
+  Client:
+    Type: String
+    Description: Resource Tag
+  Project:
+    Type: String
+    Description: A value to identify the project the resource supports
+  Environment:
+    Description: Enter value to suffix the Kinesis and Firehose stream names to make them unique within an account and region. For example, use 'dev' or 'prd'
+    Type: String
+  CustomEventProcessing:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Description: >
+      This parameter describes whether or not to deploy Event firehose or a lambda with custom logic 
+      to add to Event before it is added to bucket
+
+Conditions:
+  DeployEventFirehose: !Equals [!Ref CustomEventProcessing, "false"]
+  DeployCustomEventProcessor: !Equals [!Ref CustomEventProcessing, "true"]
+
+Resources:
+  DataTable:
+    Type: "AWS::DynamoDB::Table"
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub ${Client}-${Project}-${Environment}-data-table
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: start
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+          - AttributeName: sk
+            KeyType: HASH
+          - AttributeName: pk
+            KeyType: RANGE
+          Projection: 
+            ProjectionType: ALL      
+        - IndexName: startIndex
+          KeySchema:
+            - AttributeName: start
+              KeyType: HASH
+            - AttributeName: pk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  CreateBucket:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: bucket-template.yaml
+      Parameters:
+        Client: !Ref Client
+        Project: !Ref Project
+        Environment: !Ref Environment
+
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam:aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam:aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: AccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt [CreateBucket, Outputs.BucketArn]
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - Fn::Join:
+                    - ""
+                    - - !GetAtt [CreateBucket, Outputs.BucketArn]
+                      - "/*"
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:DescribeKey          
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      - - "arn:aws:kms:"
+                        - !Ref AWS::Region
+                        - ":"
+                        - !Ref AWS::AccountId
+                        - ":key/"
+                        - !GetAtt [CreateBucket, Outputs.BucketKmsKeyId]
+
+  CreateQueueProcessors:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: sns-message-to-queue.yaml
+      Parameters:
+        Client: !Ref Client
+        Project: !Ref Project
+        Environment: !Ref Environment
+        BucketName: !GetAtt [CreateBucket, Outputs.BucketName]
+        LambdaRoleArn: !GetAtt LambdaRole.Arn
+
+  # # Events can be sent directly to the folder specified with a firehose
+  # CreateEventFirehose:
+  #   Condition: DeployEventFirehose
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: firehose-template.yaml
+  #     Parameters:
+  #       Client: !Ref Client
+  #       Project: !Ref Project
+  #       Environment: !Ref Environment
+  #       ReportsKmsId: !GetAtt [CreateBucket, Outputs.BucketKmsKeyId]
+  #       BucketName: !GetAtt [CreateBucket, Outputs.BucketName]
+
+  # #  Custom processor for Events using a lambda triggered by Kinesis
+  # CreateEventCustomProcessor:
+  #   Condition: DeployCustomEventProcessor
+  #   Type: AWS::Serverless::Application      
+  #   Properties:
+  #     Location: sam-disco-lambdas/.aws-sam/build/template.yaml
+  #     Parameters:
+  #       Client: !Ref Client
+  #       Project: !Ref Project
+  #       Environment: !Ref Environment
+  #       InstanceId: !Ref InstanceId
+  #       ReportsKmsId: !GetAtt [CreateBucket, Outputs.BucketKmsKeyId]
+  #       BucketName: !GetAtt [CreateBucket, Outputs.BucketName]   
+  #       OutputBucketName: !GetAtt [CreateBucket, Outputs.BucketName]   
+
+  # CreateEventKinesisStream:
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: kinesis-template.yaml
+  #     Parameters:
+  #       Client: !Ref Client
+  #       Project: !Ref Project
+  #       Environment: !Ref Environment
+  #       ReportsKmsId: !GetAtt [CreateBucket, Outputs.BucketKmsKeyId]
+
+  IntegrationUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub ${Client}-${Project}-${Environment}-user
+
+  AccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AccessPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: 
+              # - kinesis:GetShardIterator
+              # - kinesis:GetRecords
+              # - kinesis:DescribeStream
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource:
+              # - !GetAtt [CreateEventKinesisStream, Outputs.KinesisStreamArn]
+              - !GetAtt [CreateBucket, Outputs.BucketArn]
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - Fn::Join:
+                - ""
+                - - !GetAtt [CreateBucket, Outputs.BucketArn]
+                  - "/*"
+          - Effect: Allow
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey          
+            Resource:
+              - Fn::Join:
+                  - ""
+                  - - "arn:aws:kms:"
+                    - !Ref AWS::Region
+                    - ":"
+                    - !Ref AWS::AccountId
+                    - ":key/"
+                    - !GetAtt [CreateBucket, Outputs.BucketKmsKeyId]
+      Users:
+        - !Ref IntegrationUser  
+
+
+Outputs:
+  S3BucketName:
+    Description: Name of storage buckets for all objects in  integration
+    Value: !GetAtt [CreateBucket, Outputs.BucketName]
+  KMSKeyArn:
+    Description: ARN of KMS Key needed to encrypt data sent to 
+    Value: !GetAtt [CreateBucket, Outputs.BucketKmsKeyArn]
+  # KinesisStreamArn:
+  #   Description: ARN of Kinesis Stream that will deliver Events to 
+  #   Value: !GetAtt [CreateEventKinesisStream, Outputs.KinesisStreamArn]
+  # FirehoseArn:
+  #   Condition: DeployEventFirehose
+  #   Description: ARN of Kinesis Firehose that will deliver Events directly to  S3 Bucket
+  #   Value: !GetAtt [CreateEventFirehose, Outputs.FirehoseArn]
+  # EventKinesisStreamArn:
+  #   Condition: DeployCustomEventProcessor
+  #   Description: ARN of Kinesis Firehose that will deliver Events directly to  S3 Bucket
+  #   Value: !GetAtt [CreateEventCustomProcessor, Outputs.KinesisStreamEventArn]    
+  UserName:
+    Description: Application User For Infra - Access Key is not yet generated so that the Key and Secret don't get logged
+    Value: !Ref IntegrationUser
