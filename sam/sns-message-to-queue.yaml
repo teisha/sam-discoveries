@@ -18,7 +18,7 @@ Parameters:
     Type: String
     Description: Name of Bucket
   LambdaRoleArn:
-    Type: Stirng
+    Type: String
     Description: ARN of lambda execution role
 
 Resources:
@@ -36,7 +36,9 @@ Resources:
   SamQueue:
     Type: AWS::SQS::Queue
     Properties:
+      VisibilityTimeout: 30
       RedrivePolicy:
+        maxReceiveCount: 2
         deadLetterTargetArn: !GetAtt SamDeadLetterQueue.Arn
       Tags:
         - Key: Client
@@ -65,7 +67,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs18.x
-      Timeout: 60
+      Timeout: 30
       CodeUri: dist/sam-queue-handler
       Handler: index.handler
       Environment:
@@ -77,6 +79,16 @@ Resources:
         SamEvent:
           Type: SQS
           Properties: 
-            Queue: !SamQueue
+            Queue: !GetAtt SamQueue.Arn
             BatchSize: 10
-      
+
+Outputs:
+  SamEventHandlerLambda:
+    Description: Handler for queue events
+    Value: !GetAtt SamEventHandler.Arn
+  SamQueueArn:
+    Description: Arn of Queue Created
+    Value: !GetAtt SamQueue.Arn
+  SamDeadLetterQueueArn:
+    Description: Arn of Dead Letter Queue
+    Value: !GetAtt SamDeadLetterQueue.Arn

@@ -80,9 +80,16 @@ Resources:
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 
+              - sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam:aws:policy/service-role/AWSLambdaBasicExecutionRole
-        - arn:aws:iam:aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
       Policies:
         - PolicyName: AccessPolicy
           PolicyDocument:
