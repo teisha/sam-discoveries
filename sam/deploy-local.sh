@@ -44,3 +44,7 @@ sam build --template $TEMPLATE \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
   --region $REGION \
   --profile $PROFILE
+
+
+
+# aws sns publish --topic-arn arn:aws:sns:us-east-1:001668627821:sam-disco-infra-experiment-dev --message "Hello World"
