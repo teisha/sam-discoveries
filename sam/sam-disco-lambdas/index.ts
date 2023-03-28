@@ -1,5 +1,5 @@
 import { S3Client } from "@aws-sdk/client-s3";
-import { SQSEvent } from "aws-lambda";
+import { SNSEvent, SQSEvent } from "aws-lambda";
 import { Env } from "./services/environmentService";
 import { S3Service } from "./services/s3Service";
 import { QueueHandler } from "./lambdas/sam-queue-handler/QueueHandler";

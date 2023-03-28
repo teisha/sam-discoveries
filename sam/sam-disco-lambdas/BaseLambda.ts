@@ -1,23 +1,28 @@
 export interface LambdaReturnType  {
     statusCode: number;
-    message?: string; 
+    body?: string; 
+}
+
+const successMessage = {
+    statusCode: 200
 }
 
 export class BaseHandler {
     constructor() {}
     handleError (code: number, message? : string): LambdaReturnType {
-        const returnVal: LambdaReturnType =  {
-            statusCode: code
-        }
+        const returnVal = JSON.parse(JSON.stringify(successMessage))
+        returnVal.statusCode = code;
+
         if (message) {
-            returnVal.message = message;
+            returnVal.body = message;
         }
+        console.log(`RETURNING:: ${JSON.stringify(returnVal) }`)
         return returnVal
     }
     handleReturn (message: string): LambdaReturnType {
-        return {
-            statusCode: 200,
-            message: message
-        } 
+        const returnVal = JSON.parse(JSON.stringify(successMessage))
+        returnVal.body = message;
+        console.log(`RETURNING:: ${JSON.stringify(returnVal) }`)
+        return returnVal
     }
 }

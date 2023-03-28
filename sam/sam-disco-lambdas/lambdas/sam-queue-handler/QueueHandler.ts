@@ -1,4 +1,4 @@
-import { SQSEvent } from "aws-lambda";
+import { SNSEvent, SNSEventRecord, SNSMessage, SQSEvent } from "aws-lambda";
 import { S3Service } from "../../services/s3Service";
 import { BaseHandler } from "../../BaseLambda";
 import { EventWorthSaving } from "../../models/EventWorthSaving";
@@ -10,14 +10,24 @@ export class QueueHandler extends BaseHandler {
     }
 
     async handle(event: SQSEvent) {
+        console.log(JSON.stringify(event) )
         try {
             for (let rec of event.Records) {
-                const saveableRec = JSON.parse(rec.body) as EventWorthSaving
+                console.log(`Processing::  ${rec.messageId}`)
+                const snsMessage = JSON.parse(rec.body) as SNSMessage
+                console.log(`Message is ${JSON.stringify(snsMessage, null, 2)}`) 
+                if (snsMessage.Message === "I DEMAND TO SEE THE DEAD LETTER QUEUE") {
+                    throw new Error("DEAD")
+                }
+                const saveableRec = JSON.parse(snsMessage.Message) as EventWorthSaving
                 await this.saveRecToS3(saveableRec)
             }
             return this.handleReturn(`${event.Records.length} records saved to ${this.bucketName}`)
         } catch (error) {
             console.log ({error})
+            if ((error as unknown as Error).message === "DEAD") {
+                throw error
+            }
             return this.handleError(300, (error as unknown as Error).message)
         }
 
