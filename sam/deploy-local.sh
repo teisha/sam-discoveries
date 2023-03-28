@@ -19,10 +19,12 @@ echo "Building Sam Discovery Infra project"
 
 # # Build sam-disco-lambdas
 # echo "Building Sam Discovery Lambdas"
-# npm install -D
-# node esbuild.js
+cd sam-disco-lambdas
+npm install -D
+npm run build
+cd ..
 
-# pwd
+pwd
 
 
 

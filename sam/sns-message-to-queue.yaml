@@ -84,8 +84,8 @@ Resources:
     Properties:
       Runtime: nodejs18.x
       Timeout: 30
-      CodeUri:
-      Handler: sam-disco-lambdas/lambdas/sam-queue-handler/index.handler
+      CodeUri: dist
+      Handler: index.queueHandler
       Environment:
         Variables:
           REGION: !Ref AWS::Region
@@ -103,12 +103,14 @@ Resources:
       BuildProperties:
         Format: esm
         Minify: false
+        Target: "es2022"
         OutExtension:
           - .js=.mjs
-        Target: "es2022"
         Sourcemap: true
         EntryPoints:
-          - sam-disco-lambdas/lambdas/sam-queue-handler/index.ts
+          - index.js
+        External:
+          - "@aws-sdk/client-s3"
 
 Outputs:
   SamEventHandlerLambda:
