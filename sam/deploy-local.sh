@@ -17,12 +17,12 @@ DEPLOY_CUSTOM_HANDLER="false"
 # Build sam-disco-cloudformation
 echo "Building Sam Discovery Infra project"
 
-# Build sam-disco-lambdas
-echo "Building Sam Discovery Lambdas"
-npm install -D
-node esbuild.js
+# # Build sam-disco-lambdas
+# echo "Building Sam Discovery Lambdas"
+# npm install -D
+# node esbuild.js
 
-pwd
+# pwd
 
 
 

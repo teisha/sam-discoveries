@@ -1,8 +1,7 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Create an SNS topic and add a queue subscription
-
 
 Parameters:
   Client:
@@ -31,8 +30,8 @@ Resources:
         - Key: Project
           Value: !Ref Project
         - Key: Environment
-          Value: !Ref Environment 
-  
+          Value: !Ref Environment
+
   SamQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -46,13 +45,13 @@ Resources:
         - Key: Project
           Value: !Ref Project
         - Key: Environment
-          Value: !Ref Environment  
+          Value: !Ref Environment
 
   SamTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: !Sub "${Client}-${Project}-experiment-${Environment}"
-      Subscription: 
+      Subscription:
         - Endpoint: !GetAtt SamQueue.Arn
           Protocol: sqs
       Tags:
@@ -61,15 +60,15 @@ Resources:
         - Key: Project
           Value: !Ref Project
         - Key: Environment
-          Value: !Ref Environment  
+          Value: !Ref Environment
 
   SamQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
       PolicyDocument:
         Statement:
-          - Effect: Allow 
-            Principal: 
+          - Effect: Allow
+            Principal:
               Service: sns.amazonaws.com
             Action:
               - sqs:SendMessage
@@ -85,19 +84,31 @@ Resources:
     Properties:
       Runtime: nodejs18.x
       Timeout: 30
-      CodeUri: dist/sam-queue-handler
-      Handler: index.handler
+      CodeUri:
+      Handler: sam-disco-lambdas/lambdas/sam-queue-handler/index.handler
       Environment:
         Variables:
           REGION: !Ref AWS::Region
           BUCKET: !Ref BucketName
+          NODE_OPTIONS: --enable-source-maps
       Role: !Ref LambdaRoleArn
       Events:
         SamEvent:
           Type: SQS
-          Properties: 
+          Properties:
             Queue: !GetAtt SamQueue.Arn
             BatchSize: 10
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Minify: false
+        OutExtension:
+          - .js=.mjs
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - sam-disco-lambdas/lambdas/sam-queue-handler/index.ts
 
 Outputs:
   SamEventHandlerLambda:
