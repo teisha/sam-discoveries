@@ -137,16 +137,29 @@ Resources:
       Handler: index.goodOlLambdaHandler
       Role: !GetAtt LambdaRole.Arn
 
-  CreateQueueProcessors:
+  CreateStepFunctions:
     Type: AWS::Serverless::Application
     Properties:
-      Location: sns-message-to-queue.yaml
+      Location: template-step-functions.yaml
       Parameters:
         Client: !Ref Client
         Project: !Ref Project
         Environment: !Ref Environment
         BucketName: !GetAtt [CreateBucket, Outputs.BucketName]
         LambdaRoleArn: !GetAtt LambdaRole.Arn
+        GoodOlLambdaArn: !GetAtt GoodOlHandler.Arn
+
+
+  # CreateQueueProcessors:
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: sns-message-to-queue.yaml
+  #     Parameters:
+  #       Client: !Ref Client
+  #       Project: !Ref Project
+  #       Environment: !Ref Environment
+  #       BucketName: !GetAtt [CreateBucket, Outputs.BucketName]
+  #       LambdaRoleArn: !GetAtt LambdaRole.Arn
 
   # # Events can be sent directly to the folder specified with a firehose
   # CreateEventFirehose:
@@ -186,10 +199,10 @@ Resources:
   #       Environment: !Ref Environment
   #       ReportsKmsId: !GetAtt [CreateBucket, Outputs.BucketKmsKeyId]
 
-  IntegrationUser:
-    Type: AWS::IAM::User
-    Properties:
-      UserName: !Sub ${Client}-${Project}-${Environment}-user
+  # IntegrationUser:
+  #   Type: AWS::IAM::User
+  #   Properties:
+  #     UserName: !Sub ${Client}-${Project}-${Environment}-user
 
   AccessPolicy:
     Type: AWS::IAM::Policy

@@ -1,4 +1,5 @@
 import { BaseHandler } from "../../BaseLambda";
+import { v4 as uuidv4 } from 'uuid'
 
 
 export type IncomingEvent = {
@@ -13,7 +14,10 @@ export class GoodOlHandler extends BaseHandler {
             if (werd === "ERRORME") {
                 return this.handleError(300, "You got yourself an error");
             } else {
-                return this.handleReturn("Word processed:: " + werd)
+                return this.handleReturn({
+                    ...event,
+                    id: uuidv4()
+                })
             }
         }
         throw new Error ("Where's my word?")

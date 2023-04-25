@@ -4,6 +4,10 @@ import { Env } from "./services/environmentService";
 import { S3Service } from "./services/s3Service";
 import { QueueHandler } from "./lambdas/sam-queue-handler/QueueHandler";
 import { GoodOlHandler, IncomingEvent } from "./lambdas/gool-ol-lambda-handler/GoodOlLambda";
+import { TransformLambda } from "./lambdas/transform-something/TransformLambda";
+import { EventWithId } from "./models/EventWithId";
+import { AddLookupHandler } from "./lambdas/add-lookup/AddLookupLambda";
+import { EventAfterTransform } from "./models/EventAfterTransform";
 
 
 
@@ -18,5 +22,12 @@ export const queueHandler = async (event: SQSEvent) => {
 export const goodOlLambdaHandler = async (event: IncomingEvent ) => {
     const handler = new GoodOlHandler();
     return handler.handler(event)
-
+}
+export const transformLambdaHandler = async (event: EventWithId ) => {
+    const handler = new TransformLambda();
+    return handler.handler(event)
+}
+export const addLookupLambdaHandler = async (event: EventAfterTransform ) => {
+    const handler = new AddLookupHandler();
+    return handler.handler(event)
 }

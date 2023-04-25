@@ -19,9 +19,13 @@ export class BaseHandler {
         console.log(`RETURNING:: ${JSON.stringify(returnVal) }`)
         return returnVal
     }
-    handleReturn (message: string): LambdaReturnType {
+    handleReturn (returnObject: string | any): LambdaReturnType {
         const returnVal = JSON.parse(JSON.stringify(successMessage))
-        returnVal.body = message;
+        if (typeof returnObject === 'string') {
+            returnVal.body = returnObject;
+        } else {
+            returnVal.body = returnObject
+        }
         console.log(`RETURNING:: ${JSON.stringify(returnVal) }`)
         return returnVal
     }
