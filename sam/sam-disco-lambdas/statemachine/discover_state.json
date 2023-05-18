@@ -1,0 +1,35 @@
+{
+    "Comment": "AWS Step Functions Attempt",
+    "StartAt": "GoodOlLambda",
+    "Version": "1.0",
+    "States": {
+      "GoodOlLambda": {
+        "Type": "Task",
+        "Resource": "${GoodOlLambdaArn}",
+        "Next": "TransformIt"
+      },
+      "TransformIt": {
+        "Type": "Task",
+        "Resource": "${TransformLambdaArn}",
+        "Next": "AddLookup"
+      },
+      "AddLookup": {
+        "Type": "Task",
+        "Resource": "${AddLookupLambdaArn}",
+        "Retry" : [
+            {
+                "ErrorEquals": [
+                    "States.TaskFailed"
+                ],
+                "IntervalSeconds": 15,
+                "MaxAttempts": 2,
+                "BackoffRate": 1.5
+            }
+        ],
+        "Next": "Done"
+      },
+      "Done": {
+        "Type": "Succeed"
+      }
+    }
+}

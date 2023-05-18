@@ -16,6 +16,7 @@ Parameters:
   BucketName:
     Type: String
     Description: Name of Bucket
+    Default: ""
   LambdaRoleArn:
     Type: String
     Description: ARN of lambda execution role
@@ -23,6 +24,7 @@ Parameters:
     Type: String
     Description: ARN of GoodOlLambda
 
+Resources:
   TransformLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -30,7 +32,7 @@ Parameters:
       Timeout: 30
       CodeUri: dist
       Handler: index.transformLambdaHandler
-      Role: !GetAtt LambdaRole.Arn    
+      Role: !Ref LambdaRoleArn    
 
   AddLookupLambda:
     Type: AWS::Serverless::Function
@@ -39,7 +41,7 @@ Parameters:
       Timeout: 30
       CodeUri: dist
       Handler: index.addLookupLambdaHandler
-      Role: !GetAtt LambdaRole.Arn         
+      Role: !Ref LambdaRoleArn        
 
 
   RoleMachineLambda:
@@ -66,29 +68,38 @@ Parameters:
   StateMachineEventPasser:
     Type: AWS::StepFunctions::StateMachine
     Properties:
-      DefinitionString: !Sub |
-        {
-            "Comment": "AWS Step Functions Attempt",
-            "StartAt": "GoodOlLambda",
-            "Version": "1.0",
-            "States": {
-              "GoodOlLambda": {
-                "Type": "Task",
-                "Resource": "${GoodOlLambdaArn}",
-                "Next": "TransformIt"
-              },
-              "TransformIt": {
-                "Type": "Task",
-                "Resource": "${TransformLambda.Arn}",
-                "Next": "AddLookup"
-              },
-              "AddLookup": {
-                "Type": "Task",
-                "Resource": "${AddLookupLambda.Arn}",
-                "Next": "Done"
-              },
-              "Done": {
-                "Type: "Succeed"
-              }
-            }
-        }
+      RoleArn: !GetAtt RoleMachineLambda.Arn
+      DefinitionUri: statemachine/discover_state.json
+      DefinitionSubstitutions:
+        GoodOlLambdaArn: !Ref GoodOlLambdaArn
+        TransformLambdaArn: !GetAtt TransformLambda.Arn
+        AddLookupLambdaArn: !GetAtt AddLookupLambda.Arn
+
+      # DefinitionString: !Sub |
+      # {
+      #       "Comment": "AWS Step Functions Attempt",
+      #       "StartAt": "GoodOlLambda",
+      #       "Version": "1.0",
+      #       "States": {
+      #         "GoodOlLambda": {
+      #           "Type": "Task",
+      #           "Resource": "${GoodOlLambdaArn}",
+      #           "Next": "TransformIt"
+      #         },
+      #         "TransformIt": {
+      #           "Type": "Task",
+      #           "Resource": "${TransformLambda.Arn}",
+      #           "Next": "AddLookup"
+      #         },
+      #         "AddLookup": {
+      #           "Type": "Task",
+      #           "Resource": "${AddLookupLambda.Arn}",
+      #           "Next": "Done"
+      #         },
+      #         "Done": {
+      #           "Type": "Succeed"
+      #         }
+      #       }
+      #   }
+
+        
