@@ -8,10 +8,13 @@ export type IncomingEvent = {
 
 export class AddLookupHandler extends BaseHandler {
     handler(event: EventAfterTransform) {
-        let {backwards: _, ...returnVal} = event;
+        console.log(event)
+        const data = event.body
+        console.log(data)
+        let {backwards, ...returnVal} = data;
         return this.handleReturn({
             ...returnVal,
-            description: `Pretend something got looked up for ${event.backwards}`
+            description: `Pretend something got looked up for ${backwards}`
         })
     }
 }

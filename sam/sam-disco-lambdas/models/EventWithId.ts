@@ -1,4 +1,8 @@
 export interface EventWithId  {
-    id: string;
-    wordValue: string;
+    statusCode: number;
+    body: {
+        id: string;
+        wordValue: string;
+    }
+
 }

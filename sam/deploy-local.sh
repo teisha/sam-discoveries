@@ -26,6 +26,7 @@ cd ..
 
 pwd
 
+aws s3 cp ./deployConfigs/ "s3://$BUCKET/$CLIENT/$ENVIRONMENT" --recursive --include "*.json" --region $REGION --profile $PROFILE
 
 
 sam build --template $TEMPLATE \
@@ -39,6 +40,7 @@ sam build --template $TEMPLATE \
     "Project"=$PROJECT \
     "Environment"=$ENVIRONMENT \
   --parameter-overrides \
+    ParameterKey=DeployBucket,ParameterValue=$BUCKET \
     ParameterKey=Client,ParameterValue=$CLIENT \
     ParameterKey=Project,ParameterValue=$PROJECT \
     ParameterKey=Environment,ParameterValue=$ENVIRONMENT \
@@ -55,3 +57,6 @@ sam build --template $TEMPLATE \
 # aws sns publish --topic-arn arn:aws:sns:us-east-1:001668627821:sam-disco-infra-experiment-dev --message "{\"id\":\"id-1\",\"name\":\"Hello World\", \"description\": \"Adopt easilt the best practices in your apps\"}"
 
 
+# DELETE commands
+# aws cloudformation delete-stack --stack-name sam-disco-infra-dev --region us-east-1 --profile lsoft
+# aws dynamodb delete-table --table-name sam-disco-infra-dev-data-table --region us-east-1 --profile lsoft

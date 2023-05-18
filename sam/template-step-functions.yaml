@@ -4,6 +4,9 @@ Description: >
   Create an SNS topic and add a queue subscription
 
 Parameters:
+  DeployBucket:
+    Type: String
+    Description: Name of the deploy bucket with the state machine config file
   Client:
     Type: String
     Description: Resource Tag
@@ -25,24 +28,36 @@ Parameters:
     Description: ARN of GoodOlLambda
 
 Resources:
+  StateMachineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "state/${Client}-${Project}-${Environment}-StateMachine"
+      RetentionInDays: 365
+      Tags:
+        - Key: Client
+          Value: !Ref Client
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment      
+
   TransformLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs18.x
       Timeout: 30
-      CodeUri: dist
+      CodeUri: sam-disco-lambdas/dist
       Handler: index.transformLambdaHandler
-      Role: !Ref LambdaRoleArn    
+      Role: !Ref LambdaRoleArn  
 
   AddLookupLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs18.x
       Timeout: 30
-      CodeUri: dist
+      CodeUri: sam-disco-lambdas/dist
       Handler: index.addLookupLambdaHandler
-      Role: !Ref LambdaRoleArn        
-
+      Role: !Ref LambdaRoleArn           
 
   RoleMachineLambda:
     Type: AWS::IAM::Role
@@ -55,7 +70,7 @@ Resources:
               Service: !Sub 'states.${AWS::Region}.amazonaws.com'
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: lambdaInvoke
+        - PolicyName: StepFunctionInvokeRole
           PolicyDocument:
             Statement:
               - Effect: Allow
@@ -64,16 +79,45 @@ Resources:
                   - !Ref GoodOlLambdaArn
                   - !GetAtt TransformLambda.Arn
                   - !GetAtt AddLookupLambda.Arn
+              - Effect: Allow
+                Action: 
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt StateMachineLogGroup.Arn
+        - PolicyName: StepFunctionLogger
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - logs:CreateLogDelivery
+                  - logs:CreateLogStream
+                  - logs:GetLogDelivery
+                  - logs:UpdateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutLogEvents
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - logs:DescribeLogGroups
+                Resource: "*"
 
   StateMachineEventPasser:
     Type: AWS::StepFunctions::StateMachine
     Properties:
       RoleArn: !GetAtt RoleMachineLambda.Arn
-      DefinitionUri: statemachine/discover_state.json
+      DefinitionS3Location: 
+        Bucket: !Ref DeployBucket
+        Key: !Sub '${Client}/${Environment}/discover_statemachine.json'
       DefinitionSubstitutions:
         GoodOlLambdaArn: !Ref GoodOlLambdaArn
         TransformLambdaArn: !GetAtt TransformLambda.Arn
         AddLookupLambdaArn: !GetAtt AddLookupLambda.Arn
+      LoggingConfiguration:
+        Destinations:
+          - CloudWatchLogsLogGroup:
+             LogGroupArn: !GetAtt StateMachineLogGroup.Arn
+        IncludeExecutionData: True
+        Level: ALL
 
       # DefinitionString: !Sub |
       # {

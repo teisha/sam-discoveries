@@ -5,6 +5,9 @@ Description: >
   Master template for objects created to interface with 
 
 Parameters:
+  DeployBucket:
+    Type: String
+    Description: Name of the deploy bucket that will hold deployConfigs
   Client:
     Type: String
     Description: Resource Tag
@@ -133,7 +136,7 @@ Resources:
     Properties:
       Runtime: nodejs18.x
       Timeout: 30
-      CodeUri: dist
+      CodeUri: sam-disco-lambdas/dist
       Handler: index.goodOlLambdaHandler
       Role: !GetAtt LambdaRole.Arn
 
@@ -142,6 +145,7 @@ Resources:
     Properties:
       Location: template-step-functions.yaml
       Parameters:
+        DeployBucket: !Ref DeployBucket
         Client: !Ref Client
         Project: !Ref Project
         Environment: !Ref Environment
