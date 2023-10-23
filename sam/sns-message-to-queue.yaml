@@ -19,6 +19,10 @@ Parameters:
   LambdaRoleArn:
     Type: String
     Description: ARN of lambda execution role
+  FilterDomains:
+    Type: CommaDelimitedList
+  Suffix:
+    Type: String
 
 Resources:
   SamDeadLetterQueue:
@@ -79,12 +83,29 @@ Resources:
       Queues:
         - !Ref SamQueue
 
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint: !GetAtt SamQueue.Arn
+      Region: !Ref AWS::Region
+      TopicArn: !GetAtt SamTopic.TopicArn
+      FilterPolicyScope: MessageBody
+      # FilterPolicy: '{"metadata":{"eventType":["ENROLLMENT_CREATED"]}}'
+      FilterPolicy: 
+        {
+          "metadata": {
+            "eventType": ["ENROLLMENT_CREATED"],
+            "domain": !Ref FilterDomains
+          }
+        }
+
   SamEventHandler:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs18.x
       Timeout: 30
-      CodeUri: dist
+      CodeUri: sam-disco-lambdas/dist
       Handler: index.queueHandler
       Environment:
         Variables:
