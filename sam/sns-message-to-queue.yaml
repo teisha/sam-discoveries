@@ -96,7 +96,11 @@ Resources:
         {
           "metadata": {
             "eventType": ["ENROLLMENT_CREATED"],
-            "domain": !Ref FilterDomains
+            "domain": !Ref FilterDomains,
+            "implicit": [
+              { "exists": false },
+              {"anything-but": [true]}
+            ]
           }
         }
 
